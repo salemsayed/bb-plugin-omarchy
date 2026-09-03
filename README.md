@@ -4,7 +4,7 @@ Keep BB visually in step with the active [Omarchy](https://omarchy.org) theme. S
 
 ## Showcase
 
-[Watch the 36-second Omascreen showcase](https://github.com/salemsayed/bb-plugin-omarchy/releases/download/v0.1.0/showcase.mp4)
+[Watch the 36-second Omascreen showcase](https://github.com/salemsayed/bb-plugin-omarchy/releases/download/v0.1.1/showcase.mp4)
 
 | Lupine · light | Tokyo Night · dark |
 | --- | --- |
