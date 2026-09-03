@@ -1,0 +1,62 @@
+{
+  "name": "bb-plugin-omarchy",
+  "version": "0.1.0",
+  "description": "Keep BB perfectly in step with the active Omarchy theme.",
+  "author": "Salem Sayed Abdel Gawad",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/salemsayed/bb-plugin-omarchy.git"
+  },
+  "homepage": "https://github.com/salemsayed/bb-plugin-omarchy#readme",
+  "bugs": {
+    "url": "https://github.com/salemsayed/bb-plugin-omarchy/issues"
+  },
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.41",
+    "bbPluginSdk": ">=0.4.34 <0.5.0"
+  },
+  "bb": {
+    "name": "Omarchy Sync",
+    "description": "Live Omarchy palette, syntax theme, ANSI colors, favicon tint, and animated transitions for BB.",
+    "branding": {
+      "icon": "./assets/icon.svg"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "host": "./host.ts",
+    "skills": []
+  },
+  "keywords": [
+    "bb-plugin",
+    "omarchy",
+    "theme",
+    "hyprland"
+  ],
+  "scripts": {
+    "build": "bb plugin build",
+    "check": "npm run typecheck && npm test",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.4.34",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "cron-parser": "^5.5.0",
+    "hono": "^4.11.9",
+    "jsdom": "^29.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}
