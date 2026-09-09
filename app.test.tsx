@@ -20,6 +20,7 @@ function clearMobileMarkers() {
 describe("Omarchy client overlay surfaces", () => {
   afterEach(() => {
     clearMobileMarkers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     document.head.querySelectorAll("[data-bb-omarchy-theme]").forEach((node) => node.remove());
   });
@@ -40,8 +41,33 @@ describe("Omarchy client overlay surfaces", () => {
     await mounted.lifecycle.dispose();
   });
 
-  it("themes an ordinary web client, including an installed PWA", async () => {
+  it.each([
+    { name: "Android tablet PWA without a Mobile UA token", userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36" },
+    { name: "Android phone browser", userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/128.0.0.0 Mobile Safari/537.36" },
+    { name: "iPhone PWA", userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15" },
+    { name: "iPad browser", userAgent: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15" },
+    { name: "iPad in desktop mode", userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15", platform: "MacIntel", maxTouchPoints: 5 },
+    { name: "Android tablet with desktop UA and Android client hints", userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36", userAgentData: { platform: "Android", mobile: false } },
+  ])("leaves $name appearance independent", async ({ name: _name, ...browser }) => {
+    vi.stubGlobal("navigator", browser);
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const plugin = await loadPluginApp(() => import("./app"));
+    const mounted = await mountPluginContentScripts(plugin, { pluginId: "omarchy", generation: 3 });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.head.querySelector("[data-bb-omarchy-theme]")).toBeNull();
+    await mounted.lifecycle.dispose();
+  });
+
+  it.each([
+    { platform: "Linux x86_64", maxTouchPoints: 0 },
+    { platform: "MacIntel", maxTouchPoints: 0 },
+    { platform: "Win32", maxTouchPoints: 10 },
+  ])("themes desktop browsers and PWAs on $platform", async (browser) => {
     clearMobileMarkers();
+    vi.stubGlobal("navigator", { ...browser, userAgent: "Mozilla/5.0" });
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ enabled: true, css: ":root { --background: #010203; }", revision: "pwa-1" }),

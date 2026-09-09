@@ -21,9 +21,9 @@ Keep BB visually in step with the active [Omarchy](https://omarchy.org) theme. S
 
 ## Desktop, PWA, and mobile behavior
 
-The BB desktop app, a normal browser tab, and an installed BB PWA follow Omarchy. They are all web surfaces and receive the same client-only overlay.
+The BB desktop app, desktop browser tabs, and desktop PWAs follow Omarchy through a client-only overlay.
 
-The native BB mobile app remains independent. Omarchy Sync detects BB's Expo/React Native bridge and does not fetch or inject theme CSS there. It also leaves BB's shared server palette ID unchanged, so the native mobile palette and the phone's own light/dark preference are never overwritten.
+Android and iOS browsers and PWAs, including tablets, remain independent, as does the native BB mobile app. Omarchy Sync detects mobile browser identifiers (including iPadOS's Mac identity with multitouch) and BB's Expo/React Native bridge, and does not fetch or inject theme CSS on those clients. They retain BB's own appearance settings, including the device's light/dark preference when set to follow the system. Browsers that hide all mobile identifiers cannot be distinguished from desktops. The plugin also leaves BB's shared server palette ID unchanged.
 
 ## Requirements
 
@@ -71,7 +71,7 @@ bb plugin build .
 bb plugin install . --yes
 ```
 
-Tests cover Omarchy TOML parsing, light/dark inference, color generation, hook ownership, server behavior, and the Expo/PWA client boundary.
+Tests cover Omarchy TOML parsing, light/dark inference, color generation, hook ownership, server behavior, and native/mobile PWA/desktop client boundaries.
 
 ## Privacy and safety
 

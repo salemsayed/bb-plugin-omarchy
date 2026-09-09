@@ -10,9 +10,17 @@ type MobileShellWindow = Window & {
   bb?: { native?: { __installed?: unknown } };
 };
 
-function isExpoMobileShell(): boolean {
+function isMobileClient(): boolean {
   const client = window as MobileShellWindow;
-  return client.ReactNativeWebView !== undefined || client.bb?.native?.__installed === true;
+  if (client.ReactNativeWebView !== undefined || client.bb?.native?.__installed === true) return true;
+
+  // Installed PWAs have no native bridge. Android tablets also commonly omit
+  // "Mobile" from their user agent, and iPadOS can identify itself as macOS.
+  const browser = navigator as Navigator & { userAgentData?: { platform?: string; mobile?: boolean } };
+  return browser.userAgentData?.mobile === true
+    || /Android|iOS/i.test(browser.userAgentData?.platform ?? "")
+    || /Android|iPhone|iPad|iPod/i.test(browser.userAgent)
+    || (/Mac/i.test(browser.platform) && browser.maxTouchPoints > 1);
 }
 
 function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
@@ -171,11 +179,9 @@ export default definePluginApp((app) => {
   app.contentScripts.register({
     id: "omarchy-theme-overlay",
     async mount(context) {
-      // BB's Expo app hosts the web client in react-native-webview. Keep its
-      // appearance independent by declining the overlay on that surface. A
-      // browser-installed PWA has neither marker and intentionally follows
-      // Omarchy just like the regular web and desktop clients.
-      if (isExpoMobileShell()) return;
+      // Phones and tablets keep BB's own appearance settings in both the
+      // native shell and browsers/PWAs; only desktop clients follow Omarchy.
+      if (isMobileClient()) return;
 
       const style = document.createElement("style");
       style.id = `bb-omarchy-theme-${context.generation}`;
