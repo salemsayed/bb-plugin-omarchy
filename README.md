@@ -21,9 +21,9 @@ Keep BB visually in step with the active [Omarchy](https://omarchy.org) theme. S
 
 ## Desktop, PWA, and mobile behavior
 
-The BB desktop app, desktop browser tabs, and desktop PWAs follow Omarchy through a client-only overlay.
+The BB desktop app and ordinary desktop browser tabs follow Omarchy through a client-only overlay.
 
-Android and iOS browsers and PWAs, including tablets, remain independent, as does the native BB mobile app. Omarchy Sync detects mobile browser identifiers (including iPadOS's Mac identity with multitouch) and BB's Expo/React Native bridge, and does not fetch or inject theme CSS on those clients. They retain BB's own appearance settings, including the device's light/dark preference when set to follow the system. Browsers that hide all mobile identifiers cannot be distinguished from desktops. The plugin also leaves BB's shared server palette ID unchanged.
+Installed PWAs on every platform remain independent, as do Android and iOS browser tabs, tablets, and the native BB mobile app. Omarchy Sync detects the browser's PWA display mode, mobile browser identifiers (including iPadOS's Mac identity with multitouch), and BB's Expo/React Native bridge. It does not fetch or inject theme CSS on those clients, and removes any stale overlay from an older plugin generation. They retain BB's own appearance settings, including the device's light/dark preference when set to follow the system. Mobile browsers that hide all mobile identifiers cannot be distinguished from desktop tabs unless they are installed as a PWA. The plugin also leaves BB's shared server palette ID unchanged.
 
 ## Requirements
 
@@ -71,7 +71,7 @@ bb plugin build .
 bb plugin install . --yes
 ```
 
-Tests cover Omarchy TOML parsing, light/dark inference, color generation, hook ownership, server behavior, and native/mobile PWA/desktop client boundaries.
+Tests cover Omarchy TOML parsing, light/dark inference, color generation, hook ownership, server behavior, and native/PWA/mobile-browser/desktop-tab client boundaries.
 
 ## Privacy and safety
 

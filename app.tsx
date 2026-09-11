@@ -5,18 +5,42 @@ import type { rpcContract } from "./server";
 
 const ANIMATIONS: AnimationStyle[] = ["off", "subtle", "smooth", "cinematic"];
 
-type MobileShellWindow = Window & {
+type ClientWindow = Window & {
   ReactNativeWebView?: unknown;
   bb?: { native?: { __installed?: unknown } };
 };
 
-function isMobileClient(): boolean {
-  const client = window as MobileShellWindow;
+type ClientNavigator = Navigator & {
+  standalone?: boolean;
+  userAgentData?: { platform?: string; mobile?: boolean };
+};
+
+const PWA_DISPLAY_MODES = [
+  "standalone",
+  "fullscreen",
+  "minimal-ui",
+  "window-controls-overlay",
+  "tabbed",
+] as const;
+
+function isInstalledPwa(): boolean {
+  const browser = navigator as ClientNavigator;
+  if (browser.standalone === true) return true;
+  if (typeof window.matchMedia !== "function") return false;
+  return PWA_DISPLAY_MODES.some((mode) => window.matchMedia(`(display-mode: ${mode})`).matches);
+}
+
+function isIndependentClient(): boolean {
+  const client = window as ClientWindow;
   if (client.ReactNativeWebView !== undefined || client.bb?.native?.__installed === true) return true;
 
-  // Installed PWAs have no native bridge. Android tablets also commonly omit
+  // Display mode is the authoritative PWA signal and continues to work when
+  // the browser reduces or replaces mobile user-agent fields.
+  if (isInstalledPwa()) return true;
+
+  // Mobile browser tabs remain independent too. Android tablets commonly omit
   // "Mobile" from their user agent, and iPadOS can identify itself as macOS.
-  const browser = navigator as Navigator & { userAgentData?: { platform?: string; mobile?: boolean } };
+  const browser = navigator as ClientNavigator;
   return browser.userAgentData?.mobile === true
     || /Android|iOS/i.test(browser.userAgentData?.platform ?? "")
     || /Android|iPhone|iPad|iPod/i.test(browser.userAgent)
@@ -179,9 +203,12 @@ export default definePluginApp((app) => {
   app.contentScripts.register({
     id: "omarchy-theme-overlay",
     async mount(context) {
-      // Phones and tablets keep BB's own appearance settings in both the
-      // native shell and browsers/PWAs; only desktop clients follow Omarchy.
-      if (isMobileClient()) return;
+      // PWAs, phones, and tablets keep BB's own appearance settings. Remove a
+      // stale overlay left by an older plugin generation before returning.
+      if (isIndependentClient()) {
+        document.head.querySelectorAll("[data-bb-omarchy-theme]").forEach((node) => node.remove());
+        return;
+      }
 
       const style = document.createElement("style");
       style.id = `bb-omarchy-theme-${context.generation}`;

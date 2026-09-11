@@ -11,10 +11,13 @@ type ShellWindow = Window & {
   bb?: { native?: { __installed?: boolean } };
 };
 
+type StandaloneNavigator = Navigator & { standalone?: boolean };
+
 function clearMobileMarkers() {
   const client = window as ShellWindow;
   delete client.ReactNativeWebView;
   delete client.bb;
+  delete (navigator as StandaloneNavigator).standalone;
 }
 
 describe("Omarchy client overlay surfaces", () => {
@@ -62,12 +65,61 @@ describe("Omarchy client overlay surfaces", () => {
   });
 
   it.each([
+    { name: "Chromium standalone PWA", mode: "standalone" },
+    { name: "fullscreen PWA", mode: "fullscreen" },
+    { name: "minimal UI PWA", mode: "minimal-ui" },
+    { name: "window controls overlay PWA", mode: "window-controls-overlay" },
+    { name: "tabbed PWA", mode: "tabbed" },
+  ])("leaves a desktop-like $name independent", async ({ mode }) => {
+    clearMobileMarkers();
+    vi.stubGlobal("navigator", {
+      platform: "Linux x86_64",
+      maxTouchPoints: 0,
+      userAgent: "Mozilla/5.0",
+    });
+    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: query === `(display-mode: ${mode})` })));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const stale = document.createElement("style");
+    stale.dataset.bbOmarchyTheme = "client-only";
+    stale.textContent = ":root, .light, .dark { color-scheme: dark; }";
+    document.head.appendChild(stale);
+
+    const plugin = await loadPluginApp(() => import("./app"));
+    const mounted = await mountPluginContentScripts(plugin, { pluginId: "omarchy", generation: 4 });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.head.querySelector("[data-bb-omarchy-theme]")).toBeNull();
+    await mounted.lifecycle.dispose();
+  });
+
+  it("leaves an iOS standalone PWA independent", async () => {
+    clearMobileMarkers();
+    vi.stubGlobal("navigator", {
+      standalone: true,
+      platform: "MacIntel",
+      maxTouchPoints: 0,
+      userAgent: "Mozilla/5.0",
+    });
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const plugin = await loadPluginApp(() => import("./app"));
+    const mounted = await mountPluginContentScripts(plugin, { pluginId: "omarchy", generation: 5 });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.head.querySelector("[data-bb-omarchy-theme]")).toBeNull();
+    await mounted.lifecycle.dispose();
+  });
+
+  it.each([
     { platform: "Linux x86_64", maxTouchPoints: 0 },
     { platform: "MacIntel", maxTouchPoints: 0 },
     { platform: "Win32", maxTouchPoints: 10 },
-  ])("themes desktop browsers and PWAs on $platform", async (browser) => {
+  ])("themes ordinary desktop browser tabs on $platform", async (browser) => {
     clearMobileMarkers();
     vi.stubGlobal("navigator", { ...browser, userAgent: "Mozilla/5.0" });
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ enabled: true, css: ":root { --background: #010203; }", revision: "pwa-1" }),
