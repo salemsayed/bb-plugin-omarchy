@@ -51,15 +51,13 @@ const DEFAULT_PREFERENCES: Preferences = {
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     if (signal.aborted) return resolve();
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      { once: true },
-    );
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
+    signal.addEventListener("abort", finish, { once: true });
   });
 }
 
@@ -129,23 +127,33 @@ export default async function plugin(bb: BbPluginApi) {
       await bb.sdk.theme.set({ themeId: active.themeId, faviconColor: nextFavicon });
     }
     const now = new Date().toISOString();
-    await bb.storage.kv.set("client-theme", {
-      css: buildThemeCss(theme.colors, prefs.animation, prefs.syncCodeTheme),
-      revision: now,
-    });
-    await bb.storage.kv.set("last-sync", {
-      themeName: theme.themeName,
-      mode: theme.colors.mode,
-      colors: theme.colors,
-      lastSyncedAt: now,
-      hookInstalled: theme.hookInstalled,
-    });
+    const css = buildThemeCss(theme.colors, prefs.animation, prefs.syncCodeTheme);
+    const [overlay, saved] = await Promise.all([
+      bb.storage.kv.get<{ css?: unknown; revision?: unknown }>("client-theme"),
+      stored(),
+    ]);
+    const cssChanged = overlay?.css !== css || typeof overlay?.revision !== "string";
+    const statusChanged = cssChanged || saved === null || saved.themeName !== theme.themeName
+      || saved.mode !== theme.colors.mode || saved.hookInstalled !== theme.hookInstalled
+      || JSON.stringify(saved.colors) !== JSON.stringify(theme.colors);
+    // A new revision makes clients replace their stylesheet. Only actual
+    // palette or preference changes should invalidate the page's styles.
+    if (cssChanged) await bb.storage.kv.set("client-theme", { css, revision: now });
+    if (statusChanged) {
+      await bb.storage.kv.set("last-sync", {
+        themeName: theme.themeName,
+        mode: theme.colors.mode,
+        colors: theme.colors,
+        lastSyncedAt: now,
+        hookInstalled: theme.hookInstalled,
+      });
+      bb.log.info(`synced Omarchy theme ${theme.themeName} (${theme.colors.mode})`);
+    }
     transient = {
       phase: "synced",
       message: `${theme.themeName} is live in BB`,
       bbThemeId: active.themeId,
     };
-    bb.log.info(`synced Omarchy theme ${theme.themeName} (${theme.colors.mode})`);
   }
 
   async function runSync(force = false): Promise<SyncStatus> {

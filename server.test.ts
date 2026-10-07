@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server.js";
 
@@ -19,6 +19,50 @@ const hostTheme = {
 };
 
 describe("server integration", () => {
+  it("preserves the overlay revision and sync timestamp until a palette or preference changes", async () => {
+    vi.useFakeTimers();
+    let theme = structuredClone(hostTheme);
+    let { bb, harness } = createFakePluginHost({
+      pluginId: "omarchy",
+      sdk: {
+        system: { config: () => ({ primaryHostId: "host-local" }) },
+        theme: { get: () => ({ themeId: "nord", faviconColor: "blue", customCss: null }) },
+      },
+      experimental_callHostRpc: ({ method }) => {
+        if (method === "readTheme") return theme;
+        throw new Error(`Unexpected host method ${method}`);
+      },
+    });
+    // Keep this test focused on palette writes rather than favicon selection.
+    await bb.storage.kv.set("preferences", { autoSync: true, syncCodeTheme: true, syncFavicon: false, animation: "smooth" });
+    try {
+      await plugin(bb);
+      const first = await harness.behavior.callRpc("sync", null);
+      const overlay = await bb.storage.kv.get("client-theme");
+      vi.setSystemTime(Date.now() + 30_000);
+      const repeated = await harness.behavior.callRpc("sync", null);
+      expect(await bb.storage.kv.get("client-theme")).toEqual(overlay);
+      expect(repeated).toEqual(first);
+      ({ bb, harness } = await harness.lifecycle.reload(plugin));
+      await harness.behavior.callRpc("sync", null);
+      expect(await bb.storage.kv.get("client-theme")).toEqual(overlay);
+
+      theme = { ...theme, colors: { ...theme.colors, background: "#101010" } };
+      vi.setSystemTime(Date.now() + 30_000);
+      await harness.behavior.callRpc("sync", null);
+      const changed = await bb.storage.kv.get<{ css: string; revision: string }>("client-theme");
+      expect(changed).not.toEqual(overlay);
+      expect(changed?.css).toContain("--canvas: #101010");
+
+      vi.setSystemTime(Date.now() + 30_000);
+      await harness.behavior.callRpc("setPreferences", { animation: "off" });
+      expect(await bb.storage.kv.get("client-theme")).not.toEqual(changed);
+    } finally {
+      await harness.lifecycle.dispose();
+      vi.useRealTimers();
+    }
+  });
+
   it("serves a desktop/web overlay without changing the server palette used by mobile", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "omarchy",

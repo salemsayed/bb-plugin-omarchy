@@ -22,10 +22,51 @@ function clearMobileMarkers() {
 
 describe("Omarchy client overlay surfaces", () => {
   afterEach(() => {
+    vi.useRealTimers();
     clearMobileMarkers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     document.head.querySelectorAll("[data-bb-omarchy-theme]").forEach((node) => node.remove());
+  });
+
+  it("leaves unchanged CSS and unrelated styles in place when only the revision changes", async () => {
+    vi.useFakeTimers();
+    clearMobileMarkers();
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
+    let revision = "one";
+    let css = ":root { --canvas: #010203; }";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ enabled: true, css, revision }))));
+    const plugin = await loadPluginApp(() => import("./app"));
+    const mounted = await mountPluginContentScripts(plugin, { pluginId: "omarchy", generation: 10 });
+    const style = document.head.querySelector<HTMLStyleElement>("[data-bb-omarchy-theme]")!;
+    const writes: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => writes.push(...records));
+    observer.observe(style, { childList: true });
+    const unrelated = document.createElement("style");
+    unrelated.textContent = "button { cursor: pointer; }";
+    document.head.appendChild(unrelated);
+    try {
+      revision = "two";
+      await vi.advanceTimersByTimeAsync(750);
+      expect(writes).toHaveLength(0);
+      expect(document.head.lastElementChild).toBe(unrelated);
+
+      css = ":root { --canvas: #040506; }";
+      await vi.advanceTimersByTimeAsync(750);
+      expect(style.textContent).toBe(css);
+      expect(writes).toHaveLength(1);
+
+      const palette = document.createElement("style");
+      palette.id = "bb-app-theme";
+      document.head.appendChild(palette);
+      await vi.advanceTimersByTimeAsync(750);
+      expect(palette.nextElementSibling).toBe(style);
+      palette.remove();
+    } finally {
+      observer.disconnect();
+      unrelated.remove();
+      await mounted.lifecycle.dispose();
+    }
   });
 
   it("does not theme BB's Expo react-native WebView", async () => {

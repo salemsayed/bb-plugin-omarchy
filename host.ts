@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
 import { hostContract, hostSignals } from "./contract.js";
 import { parseOmarchyColors } from "./palette.js";
@@ -111,11 +111,23 @@ export default experimental_defineHostEntry({
         subscriptions = await Promise.all([
           context.experimental_watch(
             { rootPath: location.omarchyRoot, debounceMs: 120, maxWaitMs: 600 },
-            (event) => notify(`omarchy:${event.kind}`),
+            (event) => {
+              if (event.kind === "changed" && !event.changes.some((change) => {
+                const path = isAbsolute(change.path) ? relative(location.omarchyRoot, change.path) : change.path;
+                return path === "current" || path.startsWith("current/");
+              })) return;
+              return notify(`omarchy:${event.kind}`);
+            },
           ),
           context.experimental_watch(
             { rootPath: location.integrationState, debounceMs: 80, maxWaitMs: 240 },
-            (event) => notify(`hook:${event.kind}`),
+            (event) => {
+              if (event.kind === "changed" && !event.changes.some((change) => {
+                const path = isAbsolute(change.path) ? relative(location.integrationState, change.path) : change.path;
+                return path === "theme.name";
+              })) return;
+              return notify(`hook:${event.kind}`);
+            },
           ),
         ]);
         watchedRoot = location.omarchyRoot;

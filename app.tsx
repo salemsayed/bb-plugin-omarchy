@@ -214,7 +214,6 @@ export default definePluginApp((app) => {
       style.id = `bb-omarchy-theme-${context.generation}`;
       style.dataset.bbOmarchyTheme = "client-only";
       document.head.appendChild(style);
-      let revision = "";
       let disposed = false;
       let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -231,18 +230,18 @@ export default definePluginApp((app) => {
               css?: unknown;
               revision?: unknown;
             };
-            const nextRevision = typeof value.revision === "string" ? value.revision : "";
             if (value.enabled === true && typeof value.css === "string") {
-              if (nextRevision !== revision || style.textContent !== value.css) {
+              if (style.textContent !== value.css) {
                 style.textContent = value.css;
-                revision = nextRevision;
               }
               // Keep the client overlay after BB's own palette element so an
               // ordinary Appearance change cannot silently outrank Omarchy.
-              if (style !== document.head.lastElementChild) document.head.appendChild(style);
+              const palette = document.getElementById("bb-app-theme");
+              if (palette && (style.compareDocumentPosition(palette) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+                palette.after(style);
+              }
             } else {
-              style.textContent = "";
-              revision = "";
+              if (style.textContent !== "") style.textContent = "";
             }
           }
         } catch (cause) {
