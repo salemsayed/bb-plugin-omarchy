@@ -80,3 +80,7 @@ The plugin reads only the active Omarchy theme files on the primary host. It mak
 ## License
 
 MIT
+
+## Theme host
+
+After moving the BB server, keep theme synchronization on the Omarchy desktop with `bb omarchy host <host-id> --json`. Use `bb omarchy host auto --json` to follow the primary server again. The selection persists across restarts. A disconnected desktop reports its error and retains the last palette.
