@@ -32,6 +32,7 @@ type Preferences = {
   syncCodeTheme: boolean;
   syncFavicon: boolean;
   animation: "off" | "subtle" | "smooth" | "cinematic";
+  themeHostId: string | null;
 };
 
 const preferencesSchema = z.object({
@@ -39,6 +40,7 @@ const preferencesSchema = z.object({
   syncCodeTheme: z.boolean(),
   syncFavicon: z.boolean(),
   animation: animationSchema,
+  themeHostId: z.string().nullable().default(null),
 });
 
 const DEFAULT_PREFERENCES: Preferences = {
@@ -46,6 +48,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   syncCodeTheme: true,
   syncFavicon: true,
   animation: "smooth",
+  themeHostId: null,
 };
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
@@ -108,6 +111,11 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   async function primaryHostId(): Promise<string> {
+    const prefs = await preferences();
+    if (prefs.themeHostId) {
+      currentHostId = prefs.themeHostId;
+      return prefs.themeHostId;
+    }
     const config = await bb.sdk.system.config();
     if (config.primaryHostId === null) throw new Error("BB has no primary host configured");
     currentHostId = config.primaryHostId;
@@ -116,7 +124,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function prepareClientTheme(theme: HostTheme, prefs: Preferences): Promise<void> {
     if (!theme.available || theme.colors === null || theme.themeName === null) {
-      throw new Error(theme.error ?? "Omarchy is not available on the primary host");
+      throw new Error(theme.error ?? "Omarchy is not available on the selected theme host");
     }
     // Deliberately keep the server's selected palette unchanged. BB mobile
     // follows that server selection, while the frontend content script below
@@ -176,7 +184,7 @@ export default async function plugin(bb: BbPluginApi) {
         if (!theme.available) {
           transient = {
             phase: "unavailable",
-            message: theme.error ?? "Omarchy was not found on the primary host",
+            message: theme.error ?? "Omarchy was not found on the selected theme host",
             bbThemeId: null,
           };
         } else {
@@ -254,6 +262,7 @@ export default async function plugin(bb: BbPluginApi) {
   const usage = `Usage:
   bb omarchy status [--json]
   bb omarchy sync [--json]
+  bb omarchy host <host-id|auto> [--json]
   bb omarchy hook install|remove [--json]`;
   bb.cli.register({
     name: "omarchy",
@@ -261,6 +270,7 @@ export default async function plugin(bb: BbPluginApi) {
     commands: [
       { name: "status", summary: "Show sync state", usage: "bb omarchy status [--json]" },
       { name: "sync", summary: "Sync immediately", usage: "bb omarchy sync [--json]" },
+      { name: "host", summary: "Choose the machine that supplies the theme", usage: "bb omarchy host <host-id|auto> [--json]" },
       { name: "hook", summary: "Install or remove the Omarchy hook", usage: "bb omarchy hook install|remove [--json]" },
     ],
     async run(argv) {
@@ -269,6 +279,10 @@ export default async function plugin(bb: BbPluginApi) {
       let result: SyncStatus;
       if (args[0] === undefined || args[0] === "status") result = await status();
       else if (args[0] === "sync") result = await runSync(true);
+      else if (args[0] === "host" && args.length === 2 && (args[1] === "auto" || /^host_[a-z0-9]+$/.test(args[1]))) {
+        await bb.storage.kv.set("preferences", { ...(await preferences()), themeHostId: args[1] === "auto" ? null : args[1] });
+        result = await runSync(true);
+      }
       else if (args[0] === "hook" && (args[1] === "install" || args[1] === "remove")) {
         const hostId = await primaryHostId();
         await host.call("setHook", { enabled: args[1] === "install" }, { hostId });

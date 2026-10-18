@@ -75,6 +75,7 @@ const syncStatusSchema = z.object({
   syncCodeTheme: z.boolean(),
   syncFavicon: z.boolean(),
   animation: animationSchema,
+  themeHostId: z.string().nullable().default(null),
 });
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 
@@ -88,6 +89,7 @@ export const rpcContract = defineRpcContract({
         syncCodeTheme: z.boolean().optional(),
         syncFavicon: z.boolean().optional(),
         animation: animationSchema.optional(),
+        themeHostId: z.string().regex(/^host_[a-z0-9]+$/).nullable().optional(),
       })
       .strict(),
     output: syncStatusSchema,

@@ -19,6 +19,42 @@ const hostTheme = {
 };
 
 describe("server integration", () => {
+  it("keeps the selected desktop across server migration and preserves its palette while disconnected", async () => {
+    let primaryHostId = "host_pc";
+    let connected = true;
+    const calls: string[] = [];
+    let { bb, harness } = createFakePluginHost({
+      pluginId: "omarchy",
+      sdk: {
+        system: { config: () => ({ primaryHostId }) },
+        theme: { get: () => ({ themeId: "nord", faviconColor: "blue", customCss: null }) },
+      },
+      experimental_callHostRpc: ({ method, hostId }) => {
+        calls.push(hostId);
+        if (!connected) throw new Error("Desktop is disconnected");
+        if (method === "readTheme") return hostTheme;
+        if (method === "watchTheme") return { watching: true, error: null };
+        throw new Error(`Unexpected host method ${method}`);
+      },
+    });
+    await bb.storage.kv.set("preferences", { autoSync: true, syncCodeTheme: true, syncFavicon: false, animation: "smooth" });
+    try {
+      await plugin(bb);
+      await harness.behavior.callRpc("setPreferences", { themeHostId: "host_pc" });
+      const overlay = await bb.storage.kv.get("client-theme");
+      primaryHostId = "host_dedi";
+      ({ bb, harness } = await harness.lifecycle.reload(plugin));
+      expect(await harness.behavior.callRpc("sync", null)).toMatchObject({ phase: "synced", themeHostId: "host_pc" });
+      connected = false;
+      expect(await harness.behavior.callRpc("sync", null)).toMatchObject({ phase: "error", message: "Desktop is disconnected" });
+      expect(await bb.storage.kv.get("client-theme")).toEqual(overlay);
+      connected = true;
+      expect(await harness.behavior.callRpc("sync", null)).toMatchObject({ phase: "synced" });
+      expect(calls.every(id => id === "host_pc")).toBe(true);
+      await harness.behavior.callRpc("setPreferences", { themeHostId: null });
+      expect(calls.at(-1)).toBe("host_dedi");
+    } finally { await harness.lifecycle.dispose(); }
+  });
   it("preserves the overlay revision and sync timestamp until a palette or preference changes", async () => {
     vi.useFakeTimers();
     let theme = structuredClone(hostTheme);
