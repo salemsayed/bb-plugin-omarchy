@@ -2,6 +2,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import {
   animationSchema,
+  omarchyColorsSchema,
   hostContract,
   hostSignals,
   rpcContract,
@@ -15,14 +16,7 @@ const STATUS_CHANGED = "status-changed";
 const storedStatusSchema = z.object({
   themeName: z.string(),
   mode: z.enum(["light", "dark"]),
-  colors: z.object({
-    mode: z.enum(["light", "dark"]),
-    accent: z.string(), selection: z.string(), muted: z.string(),
-    background: z.string(), darkBackground: z.string(), darkerBackground: z.string(), lighterBackground: z.string(),
-    foreground: z.string(), darkForeground: z.string(), lightForeground: z.string(), brightForeground: z.string(),
-    red: z.string(), yellow: z.string(), orange: z.string(), green: z.string(), cyan: z.string(), blue: z.string(), magenta: z.string(), brown: z.string(),
-    brightRed: z.string(), brightYellow: z.string(), brightGreen: z.string(), brightCyan: z.string(), brightBlue: z.string(), brightMagenta: z.string(),
-  }),
+  colors: omarchyColorsSchema,
   lastSyncedAt: z.string(),
   hookInstalled: z.boolean(),
 });

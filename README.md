@@ -14,7 +14,7 @@ Keep BB visually in step with the active [Omarchy](https://omarchy.org) theme. S
 
 - Reads Omarchy's active `colors.toml` through BB's primary-host daemon.
 - Follows `omarchy-theme-set` immediately through an isolated hook, with a native file-watcher fallback.
-- Maps Omarchy's semantic and 16 ANSI colors onto BB's current palette model.
+- Supports both named semantic palettes and `color0`–`color15` palettes (including Oxocarbon), preserving all 16 explicit ANSI colors.
 - Handles explicit Omarchy `mode = "light"` / `mode = "dark"`, with a luminance fallback for older themes.
 - Offers Off, Subtle, Smooth, and Cinematic transitions and honors `prefers-reduced-motion`.
 - Includes a BB panel with live swatches, sync status, controls, and hook management.
