@@ -7,6 +7,7 @@ const hostTheme = {
   themeName: "tokyo-night",
   colors: {
     mode: "dark" as const,
+    ansi: Array.from({ length: 16 }, (_, index) => `#${index.toString(16).repeat(6)}`),
     accent: "#7aa2f7", selection: "#33467c", muted: "#565f89",
     background: "#1a1b26", darkBackground: "#16161e", darkerBackground: "#13131a", lighterBackground: "#24283b",
     foreground: "#c0caf5", darkForeground: "#737aa2", lightForeground: "#a9b1d6", brightForeground: "#ffffff",
@@ -38,6 +39,7 @@ describe("server integration", () => {
     try {
       await plugin(bb);
       const first = await harness.behavior.callRpc("sync", null);
+      expect(first).toMatchObject({ colors: { ansi: theme.colors.ansi } });
       const overlay = await bb.storage.kv.get("client-theme");
       vi.setSystemTime(Date.now() + 30_000);
       const repeated = await harness.behavior.callRpc("sync", null);
