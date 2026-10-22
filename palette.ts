@@ -26,13 +26,13 @@ export function parseOmarchyColors(source: string): OmarchyColors {
     const line = rawLine.trim();
     if (line.startsWith("[")) break;
     if (line === "" || line.startsWith("#")) continue;
-    const match = /^([a-z_]+)\s*=\s*"([^"\r\n]+)"(?:\s*#.*)?$/i.exec(line);
+    const match = /^([a-z_][a-z0-9_]*)\s*=\s*"([^"\r\n]+)"(?:\s*#.*)?$/i.exec(line);
     if (match) values[match[1]!] = match[2]!;
   }
 
   const background = color(values.background, FALLBACKS.background);
   const foreground = color(values.foreground, FALLBACKS.foreground);
-  const accent = color(values.accent, color(values.blue, FALLBACKS.accent));
+  const accent = color(values.accent, color(values.blue ?? values.color4, FALLBACKS.accent));
   const mode =
     values.mode === "light" || values.mode === "dark"
       ? values.mode
@@ -40,11 +40,11 @@ export function parseOmarchyColors(source: string): OmarchyColors {
         ? "light"
         : "dark";
 
-  return {
+  const colors: OmarchyColors = {
     mode,
     accent,
-    selection: color(values.selection, accent),
-    muted: color(values.muted, mixHex(foreground, background, 0.52)),
+    selection: color(values.selection ?? values.selection_background, accent),
+    muted: color(values.muted ?? values.color8, mixHex(foreground, background, 0.52)),
     background,
     darkBackground: color(values.dark_background, mixHex(background, foreground, 0.06)),
     darkerBackground: color(values.darker_background, mixHex(background, foreground, 0.11)),
@@ -52,22 +52,28 @@ export function parseOmarchyColors(source: string): OmarchyColors {
     foreground,
     darkForeground: color(values.dark_foreground, mixHex(foreground, background, 0.34)),
     lightForeground: color(values.light_foreground, mixHex(foreground, background, 0.18)),
-    brightForeground: color(values.bright_foreground, foreground),
-    red: color(values.red, FALLBACKS.red),
-    yellow: color(values.yellow, FALLBACKS.yellow),
+    brightForeground: color(values.bright_foreground ?? values.color15, foreground),
+    red: color(values.red ?? values.color1, FALLBACKS.red),
+    yellow: color(values.yellow ?? values.color3, FALLBACKS.yellow),
     orange: color(values.orange, FALLBACKS.orange),
-    green: color(values.green, FALLBACKS.green),
-    cyan: color(values.cyan, FALLBACKS.cyan),
-    blue: color(values.blue, accent),
-    magenta: color(values.magenta, FALLBACKS.magenta),
+    green: color(values.green ?? values.color2, FALLBACKS.green),
+    cyan: color(values.cyan ?? values.color6, FALLBACKS.cyan),
+    blue: color(values.blue ?? values.color4, accent),
+    magenta: color(values.magenta ?? values.color5, FALLBACKS.magenta),
     brown: color(values.brown, FALLBACKS.orange),
-    brightRed: color(values.bright_red, color(values.red, FALLBACKS.red)),
-    brightYellow: color(values.bright_yellow, color(values.yellow, FALLBACKS.yellow)),
-    brightGreen: color(values.bright_green, color(values.green, FALLBACKS.green)),
-    brightCyan: color(values.bright_cyan, color(values.cyan, FALLBACKS.cyan)),
-    brightBlue: color(values.bright_blue, color(values.blue, accent)),
-    brightMagenta: color(values.bright_magenta, color(values.magenta, FALLBACKS.magenta)),
+    brightRed: color(values.bright_red ?? values.color9, color(values.red ?? values.color1, FALLBACKS.red)),
+    brightYellow: color(values.bright_yellow ?? values.color11, color(values.yellow ?? values.color3, FALLBACKS.yellow)),
+    brightGreen: color(values.bright_green ?? values.color10, color(values.green ?? values.color2, FALLBACKS.green)),
+    brightCyan: color(values.bright_cyan ?? values.color14, color(values.cyan ?? values.color6, FALLBACKS.cyan)),
+    brightBlue: color(values.bright_blue ?? values.color12, color(values.blue ?? values.color4, accent)),
+    brightMagenta: color(values.bright_magenta ?? values.color13, color(values.magenta ?? values.color5, FALLBACKS.magenta)),
   };
+  // Preserve every numbered terminal slot independently from semantic colors.
+  // Named palettes still use the existing semantic mapping as their fallback.
+  colors.ansi = semanticAnsi(colors).map((fallback, index) =>
+    color(values[`color${index}`], fallback),
+  );
+  return colors;
 }
 
 function rgb(hex: string): [number, number, number] {
@@ -157,13 +163,8 @@ const ANIMATED_PROPERTIES = [
   "--pr-merged",
 ];
 
-/** Build a complete BB palette while preserving BB's own derived surface model. */
-export function buildThemeCss(
-  colors: OmarchyColors,
-  animation: AnimationStyle,
-  syncCodeTheme = true,
-): string {
-  const ansi = [
+function semanticAnsi(colors: OmarchyColors): string[] {
+  return [
     colors.darkerBackground,
     colors.red,
     colors.green,
@@ -181,6 +182,15 @@ export function buildThemeCss(
     colors.brightCyan,
     colors.brightForeground,
   ];
+}
+
+/** Build a complete BB palette while preserving BB's own derived surface model. */
+export function buildThemeCss(
+  colors: OmarchyColors,
+  animation: AnimationStyle,
+  syncCodeTheme = true,
+): string {
+  const ansi = colors.ansi ?? semanticAnsi(colors);
   const { duration, easing } = ANIMATION[animation];
   const registrations = ANIMATED_PROPERTIES.map((property) => {
     const value = property === "--canvas" ? colors.background : property === "--ink" ? colors.foreground : colors.accent;

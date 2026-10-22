@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildThemeCss, contrastText, faviconColor, parseOmarchyColors } from "./palette.js";
+
+import { omarchyColorsSchema } from "./contract.js";
 
 const LIGHT = `
 mode = "light"
@@ -40,6 +43,37 @@ describe("parseOmarchyColors", () => {
       foreground: "#212121",
       brightMagenta: "#b363ff",
     });
+  });
+
+  it("preserves all 16 numbered Oxocarbon colors through schema and CSS", () => {
+    const source = readFileSync(new URL("./fixtures/oxocarbon.toml", import.meta.url), "utf8");
+    const colors = omarchyColorsSchema.parse(parseOmarchyColors(source));
+    expect(colors.red).toBe("#3ddbd9");
+    expect(colors.green).toBe("#33b1ff");
+    expect(colors.selection).toBe("#41414d");
+    const css = buildThemeCss(colors, "off");
+    for (let index = 0; index < 16; index++) {
+      const expected = new RegExp(`^color${index} = "(#[a-fA-F0-9]{6})"`, "m").exec(source)![1]!.toLowerCase();
+      expect(colors.ansi![index]).toBe(expected);
+      expect(css).toContain(`--ansi-${index}: ${expected};`);
+      expect(css).toContain(`--ansi-bg-fg-${index}: ${contrastText(expected)};`);
+    }
+  });
+
+  it("keeps named semantic colors separate from explicit terminal slots", () => {
+    const colors = parseOmarchyColors(`${LIGHT}\ncolor1 = "#123456"\ncolor7 = "#abcdef"`);
+    expect(colors.red).toBe("#c900c4");
+    expect(colors.foreground).toBe("#212121");
+    expect(colors.ansi![1]).toBe("#123456");
+    expect(colors.ansi![7]).toBe("#abcdef");
+    expect(colors.ansi![2]).toBe(colors.green);
+  });
+
+  it("rejects invalid numbered colors and ignores values inside sections", () => {
+    const colors = parseOmarchyColors('color1 = "red; } body { display:none"\ncolor2 = "#112233"\n[other]\ncolor2 = "#ffffff"');
+    expect(colors.ansi![1]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(colors.ansi![2]).toBe("#112233");
+    expect(buildThemeCss(colors, "off")).not.toContain("display:none");
   });
 
   it("infers dark mode and supplies safe fallbacks for old themes", () => {

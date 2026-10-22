@@ -6,6 +6,7 @@ export type AnimationStyle = z.infer<typeof animationSchema>;
 
 export const omarchyColorsSchema = z.object({
   mode: z.enum(["light", "dark"]),
+  ansi: z.array(z.string().regex(/^#[0-9a-f]{6}$/i)).length(16).optional(),
   accent: z.string(),
   selection: z.string(),
   muted: z.string(),
