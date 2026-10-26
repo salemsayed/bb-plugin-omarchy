@@ -46,7 +46,8 @@ export const hostThemeSchema = z.object({
 export type HostTheme = z.infer<typeof hostThemeSchema>;
 
 export const hostContract = defineRpcContract({
-  readTheme: { input: z.null(), output: hostThemeSchema },
+  // Read-only, so bb may resend it when a daemon response is lost.
+  readTheme: { input: z.null(), output: hostThemeSchema, experimental_retryable: true },
   watchTheme: {
     input: z.null(),
     output: z.object({ watching: z.boolean(), error: z.string().nullable() }),
