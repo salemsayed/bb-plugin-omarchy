@@ -147,6 +147,23 @@ function OmarchyPage() {
                   ))}
                 </div>
               )}
+              {status.colors?.ansi ? (
+                <div className="mt-4">
+                  <h3 className="mb-2 text-xs font-medium text-muted-foreground">Terminal colors</h3>
+                  <div className="grid grid-cols-8 gap-1">
+                    {status.colors.ansi.map((value, index) => (
+                      <div
+                        key={index}
+                        role="img"
+                        title={`color${index} ${value}`}
+                        aria-label={`color${index} ${value}`}
+                        className="h-6 rounded border border-border"
+                        style={{ backgroundColor: value }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {status.lastSyncedAt ? <p className="mt-4 text-xs text-muted-foreground">Updated {new Date(status.lastSyncedAt).toLocaleString()}</p> : null}
             </section>
 

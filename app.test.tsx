@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   loadPluginApp,
   mountPluginContentScripts,
+  renderSlot,
 } from "@get-bb/plugin-sdk/testing/app";
+import type { SyncStatus } from "./contract";
 
 type ShellWindow = Window & {
   ReactNativeWebView?: unknown;
@@ -180,5 +182,34 @@ describe("Omarchy client overlay surfaces", () => {
       .toContain("--background: #010203");
     await mounted.lifecycle.dispose();
     expect(document.head.querySelector("[data-bb-omarchy-theme]")).toBeNull();
+  });
+});
+
+describe("Omarchy Sync panel", () => {
+  it("shows every preserved terminal color beside the semantic palette", async () => {
+    const ansi = Array.from({ length: 16 }, (_, index) => `#${index.toString(16).repeat(6)}`);
+    const status: SyncStatus = {
+      phase: "synced", message: "oxocarbon is live in BB", themeName: "oxocarbon", mode: "dark",
+      colors: {
+        mode: "dark", ansi,
+        accent: "#33b1ff", selection: "#41414d", muted: "#525252",
+        background: "#161616", darkBackground: "#141414", darkerBackground: "#121212", lighterBackground: "#262626",
+        foreground: "#f2f4f8", darkForeground: "#a8a8a8", lightForeground: "#dde1e6", brightForeground: "#08bdba",
+        red: "#3ddbd9", yellow: "#ee5396", orange: "#ff832b", green: "#33b1ff", cyan: "#ff7eb6", blue: "#42be65", magenta: "#be95ff", brown: "#ff832b",
+        brightRed: "#78a9ff", brightYellow: "#be95ff", brightGreen: "#ff7eb6", brightCyan: "#82cfff", brightBlue: "#dde1e6", brightMagenta: "#ffffff",
+      },
+      bbThemeId: "default", lastSyncedAt: null, hookInstalled: true,
+      autoSync: true, syncCodeTheme: true, syncFavicon: true, animation: "smooth", themeHostId: null,
+    };
+    const plugin = await loadPluginApp(() => import("./app"));
+    const slot = renderSlot(plugin.navPanels[0]!, { subPath: "" }, { rpc: { status: () => status } });
+    try {
+      expect(await slot.findByText("Terminal colors")).toBeTruthy();
+      for (const [index, value] of ansi.entries()) {
+        expect(slot.getByLabelText(`color${index} ${value}`)).toBeTruthy();
+      }
+    } finally {
+      slot.lifecycle.unmount();
+    }
   });
 });
